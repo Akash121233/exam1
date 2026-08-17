@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTML &amp; CSS Playground</title>
+<style>
+  :root{
+    --bg:#0f1117; --panel:#171a23; --panel2:#1e222d; --line:#2b3040;
+    --text:#e6e9f0; --muted:#98a0b3; --accent:#6ea8fe; --accent2:#7ee0a8; --warn:#ffc76e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column}
+  header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header h1 span{color:var(--accent)}
+  .spacer{flex:1}
+  select,button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer}
+  button:hover,select:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#0b1020;border-color:var(--accent);font-weight:600}
+  label.chk{display:flex;align-items:center;gap:6px;color:var(--muted);cursor:pointer}
+
+  main{flex:1;display:grid;grid-template-columns:1fr 1fr 320px;gap:1px;background:var(--line);min-height:0}
+  .col{display:flex;flex-direction:column;background:var(--panel);min-width:0;min-height:0}
+  .col > .title{padding:7px 12px;background:var(--panel2);border-bottom:1px solid var(--line);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .editors{display:flex;flex-direction:column;min-height:0}
+  .editors .pane{flex:1;display:flex;flex-direction:column;min-height:0;border-bottom:1px solid var(--line)}
+  textarea{flex:1;width:100%;resize:none;border:0;outline:0;padding:12px;background:#12141c;color:#e6e9f0;
+    font:13px/1.6 "Cascadia Code",Consolas,"Courier New",monospace;tab-size:2}
+  iframe{flex:1;width:100%;border:0;background:#fff}
+  #explain{overflow:auto;padding:12px;font-size:13px}
+  #explain h3{margin:14px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+  #explain h3:first-child{margin-top:0}
+  .item{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:5px;padding:7px 9px;margin-bottom:6px}
+  .item.css{border-left-color:var(--accent2)}
+  .item.tip{border-left-color:var(--warn)}
+  .item code{color:var(--accent);font-family:Consolas,monospace}
+  .item.css code{color:var(--accent2)}
+  .item p{margin:3px 0 0;color:var(--muted);font-size:12.5px}
+  #task{padding:10px 16px;background:#151a26;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
+  #task b{color:var(--text)}
+  .status{font-size:12px;color:var(--muted)}
+  @media (max-width:1000px){ main{grid-template-columns:1fr;grid-auto-rows:minmax(220px,auto);overflow:auto} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>HTML &amp; CSS <span>Playground</span></h1>
+  <select id="lessons"></select>
+  <button id="load">Load lesson</button>
+  <button id="run" class="primary">Run ▶</button>
+  <label class="chk"><input type="checkbox" id="auto" checked> Auto-run</label>
+  <div class="spacer"></div>
+  <button id="reset">Reset</button>
+  <button id="save">Save to file</button>
+  <span class="status" id="status"></span>
+</header>
+
+<div id="task"></div>
+
+<main>
+  <section class="col editors">
+    <div class="pane">
+      <div class="title">HTML</div>
+      <textarea id="html" spellcheck="false"></textarea>
+    </div>
+    <div class="pane" style="border-bottom:0">
+      <div class="title">CSS</div>
+      <textarea id="css" spellcheck="false"></textarea>
+    </div>
+  </section>
+
+  <section class="col">
+    <div class="title">Output</div>
+    <iframe id="out" sandbox="allow-scripts"></iframe>
+  </section>
+
+  <section class="col">
+    <div class="title">Explanation</div>
+    <div id="explain"></div>
+  </section>
+</main>
+
+<script>
+/* ------------------------------------------------------------------ *
+ * 1. Reference data — what each tag / property means, in plain words.
+ * ------------------------------------------------------------------ */
+const TAGS = {
+  html:"The root element. Everything on the page lives inside it.",
+  head:"Holds information about the page (title, styles, meta) — not shown on screen.",
+  body:"Everything the visitor actually sees goes here.",
+  h1:"Main heading. Use exactly one per page — it's the page's title for readers and search engines.",
+  h2:"Sub-heading, one level below h1.",
+  h3:"Sub-heading, one level below h2.",
+  h4:"Fourth-level heading.", h5:"Fifth-level heading.", h6:"Sixth-level heading.",
+  p:"A paragraph of text. Browsers add space above and below automatically.",
+  div:"A generic box with no meaning. Use it purely for layout/grouping.",
+  span:"A generic inline wrapper — for styling a few words inside a sentence.",
+  a:"A link. The href attribute says where it goes.",
+  img:"An image. Needs src (the file) and alt (text for screen readers).",
+  ul:"Unordered list — bulleted items.",
+  ol:"Ordered list — numbered items.",
+  li:"One item inside a ul or ol.",
+  button:"A clickable button for actions.",
+  input:"A form field. The type attribute decides what kind (text, email, checkbox…).",
+  textarea:"A multi-line text box.",
+  label:"Names a form field. Clicking it focuses the field — good for accessibility.",
+  form:"Groups form fields so they can be submitted together.",
+  select:"A dropdown menu; options go inside as <option>.",
+  option:"One choice inside a select dropdown.",
+  table:"A table of data (not for page layout).",
+  tr:"A table row.", td:"A table data cell.", th:"A table header cell (bold + centered by default).",
+  header:"The top section of a page or a card — landmark for screen readers.",
+  nav:"A block of navigation links.",
+  main:"The unique main content of the page. Only one per page.",
+  section:"A thematic grouping of content, usually with its own heading.",
+  article:"Self-contained content that makes sense on its own (a post, a card).",
+  aside:"Side content: sidebars, callouts, related links.",
+  footer:"The bottom section of a page or section.",
+  strong:"Important text — shown bold and announced with emphasis.",
+  em:"Emphasised text — shown italic.",
+  br:"A line break. Don't use it for spacing; use CSS margins.",
+  hr:"A thematic break, drawn as a horizontal line.",
+  code:"Inline computer code, rendered in a monospace font.",
+  pre:"Preformatted text — keeps your spaces and line breaks.",
+  video:"Embeds a video player.", audio:"Embeds an audio player.",
+  small:"Fine print.", blockquote:"A quoted block of text, indented by default.",
+  figure:"An image/diagram with its caption, grouped together.",
+  figcaption:"The caption for a figure."
+};
+
+const PROPS = {
+  color:"Text colour.",
+  "background":"Shorthand for all background settings (colour, image, position…).",
+  "background-color":"Fill colour behind the element.",
+  "background-image":"Puts an image or gradient behind the element.",
+  "font-size":"How big the text is. rem = multiples of the root size; px = fixed.",
+  "font-family":"Which typeface to use. List fallbacks after a comma.",
+  "font-weight":"Text thickness. 400 = normal, 700 = bold.",
+  "line-height":"Vertical space between lines. 1.5 is comfortable for reading.",
+  "text-align":"Horizontal alignment of text: left, center, right, justify.",
+  "text-decoration":"Underline / line-through / none (used to strip link underlines).",
+  "letter-spacing":"Space between characters.",
+  margin:"Space OUTSIDE the element — pushes neighbours away.",
+  padding:"Space INSIDE the element — between its border and its content.",
+  border:"Shorthand: width, style, colour. e.g. 1px solid #ccc.",
+  "border-radius":"Rounds the corners. 50% makes a circle on a square box.",
+  width:"How wide the element is.", height:"How tall the element is.",
+  "max-width":"An upper limit on width — the key to responsive layouts.",
+  "min-height":"A lower limit on height.",
+  display:"How the element behaves in layout: block, inline, flex, grid, none.",
+  "box-sizing":"border-box makes width include padding+border. Much easier to reason about.",
+  position:"static (default), relative, absolute, fixed or sticky positioning.",
+  top:"Offset from the top — only works with position other than static.",
+  left:"Offset from the left — needs a position value.",
+  right:"Offset from the right — needs a position value.",
+  bottom:"Offset from the bottom — needs a position value.",
+  "z-index":"Stacking order: higher numbers sit on top.",
+  "flex-direction":"In a flex container: lay children in a row or a column.",
+  "justify-content":"Flex: spreads children along the main axis (row → horizontally).",
+  "align-items":"Flex: aligns children on the cross axis (row → vertically).",
+  gap:"Space between flex/grid children — cleaner than margins.",
+  flex:"How a flex child grows/shrinks. flex:1 means 'take the free space'.",
+  "flex-wrap":"Lets flex children drop onto a new line instead of squeezing.",
+  "grid-template-columns":"Defines grid columns. repeat(3, 1fr) = three equal columns.",
+  "grid-template-rows":"Defines the grid's rows.",
+  "box-shadow":"A drop shadow: x y blur colour.",
+  opacity:"Transparency from 0 (invisible) to 1 (solid).",
+  transition:"Animates a change smoothly, e.g. all .2s ease.",
+  transform:"Moves, rotates or scales an element without disturbing layout.",
+  overflow:"What to do when content is too big: visible, hidden, auto, scroll.",
+  cursor:"The mouse pointer shape — pointer signals 'clickable'.",
+  "list-style":"Controls list bullets; none removes them.",
+  float:"Old-school text wrapping. Prefer flex/grid for layout.",
+  content:"Text injected by ::before / ::after pseudo-elements."
+};
+
+const TIPS = [
+  [/<div[^>]*>[\s\S]*?<\/div>/i, "You're using <div>. If the box is a header, nav, card or footer, a semantic tag (header/nav/article/footer) says more to screen readers."],
+  [/<img(?![^>]*\balt=)/i, "An <img> is missing alt — add alt=\"description\" (or alt=\"\" if purely decorative) so screen readers can cope."],
+  [/<a(?![^>]*\bhref=)/i, "An <a> without href isn't a real link and can't be reached by keyboard."],
+  [/display:\s*flex/i, "Flexbox is on. Remember: justify-content works along the direction of flex-direction, align-items across it."],
+  [/display:\s*grid/i, "Grid is on. Define columns with grid-template-columns and space them with gap."],
+  [/position:\s*absolute/i, "position:absolute positions against the nearest ancestor that has position other than static — often you want position:relative on the parent."],
+  [/!important/i, "!important overrides everything and is hard to undo later. Try a more specific selector first."],
+  [/<br\s*\/?>\s*<br/i, "Two <br> in a row usually means you want a margin in CSS instead."],
+  [/width:\s*\d+px/i, "A fixed px width can overflow small screens — max-width with % is usually safer."]
+];
+
+/* ------------------------------------------------------------------ *
+ * 2. Lessons
+ * ------------------------------------------------------------------ */
+const LESSONS = [
+{ name:"1 · Your first page", task:"Headings and paragraphs are the backbone of every page. <b>Try:</b> change the h1 text and add a second paragraph.",
+  html:`<h1>Hello, world!</h1>
+<p>This is a paragraph. Everything you type here
+   becomes real HTML in the Output panel.</p>
+<p><strong>Bold text</strong> and <em>italic text</em>.</p>`,
+  css:`body {
+  font-family: system-ui, sans-serif;
+  padding: 24px;
+  color: #222;
+}
+h1 { color: #2b6cb0; }` },
+
+{ name:"2 · The box model", task:"Every element is a box: content → padding → border → margin. <b>Try:</b> change padding to 40px and watch the box grow.",
+  html:`<div class="box">I am a box.</div>
+<div class="box">So am I.</div>`,
+  css:`.box {
+  background: #e8f0fe;
+  border: 2px solid #2b6cb0;
+  padding: 16px;      /* space inside  */
+  margin: 12px;       /* space outside */
+  border-radius: 8px;
+  box-sizing: border-box;
+}` },
+
+{ name:"3 · Colours & text", task:"<b>Try:</b> change the colours, font-size and line-height and see how readability shifts.",
+  html:`<h2>Styling text</h2>
+<p class="lead">Colour, size and spacing do most of the work in design.</p>
+<p>Normal paragraph text for comparison.</p>`,
+  css:`body { font-family: Georgia, serif; padding: 24px; }
+h2   { color: #b7791f; letter-spacing: .02em; }
+.lead {
+  font-size: 1.25rem;
+  line-height: 1.7;
+  color: #444;
+}` },
+
+{ name:"4 · Flexbox row", task:"Flexbox lines children up in a row or column. <b>Try:</b> switch justify-content to space-between, then center.",
+  html:`<div class="row">
+  <div class="card">One</div>
+  <div class="card">Two</div>
+  <div class="card">Three</div>
+</div>`,
+  css:`.row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: stretch;
+}
+.card {
+  flex: 1;
+  padding: 20px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  text-align: center;
+}` },
+
+{ name:"5 · CSS Grid", task:"Grid lays things out in rows AND columns. <b>Try:</b> repeat(2, 1fr) for two columns.",
+  html:`<div class="grid">
+  <div>1</div><div>2</div><div>3</div>
+  <div>4</div><div>5</div><div>6</div>
+</div>`,
+  css:`.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 20px;
+}
+.grid div {
+  background: #dcfce7;
+  padding: 24px;
+  text-align: center;
+  border-radius: 8px;
+}` },
+
+{ name:"6 · Buttons & hover", task:"Pseudo-classes like :hover react to the user. <b>Try:</b> change the hover background and the transition duration.",
+  html:`<button class="btn">Click me</button>
+<button class="btn ghost">Or me</button>`,
+  css:`.btn {
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 8px;
+  background: #2b6cb0;
+  color: white;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all .2s ease;
+}
+.btn:hover { background: #1a4d84; transform: translateY(-2px); }
+.ghost { background: transparent; color: #2b6cb0; border: 2px solid #2b6cb0; }` },
+
+{ name:"7 · A contact form", task:"Every input should have a &lt;label&gt;. <b>Try:</b> add a phone field.",
+  html:`<form class="form">
+  <label for="name">Name</label>
+  <input id="name" type="text" placeholder="Your name">
+
+  <label for="mail">Email</label>
+  <input id="mail" type="email" placeholder="you@example.com">
+
+  <label for="msg">Message</label>
+  <textarea id="msg" rows="4"></textarea>
+
+  <button type="submit">Send</button>
+</form>`,
+  css:`.form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 360px;
+  padding: 24px;
+  font-family: system-ui, sans-serif;
+}
+label { font-size: 13px; font-weight: 600; color: #444; }
+input, textarea {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font: inherit;
+}
+input:focus, textarea:focus { outline: 2px solid #2b6cb0; border-color: transparent; }
+button { margin-top: 10px; padding: 10px; border: 0; border-radius: 6px;
+  background: #16a34a; color: #fff; font-weight: 600; cursor: pointer; }` },
+
+{ name:"8 · Card with shadow", task:"Combining spacing, radius and shadow makes a 'card'. <b>Try:</b> tune the box-shadow values.",
+  html:`<article class="card">
+  <h3>Mount Fuji</h3>
+  <p>A card groups related content into one visual unit.</p>
+  <a href="#">Read more →</a>
+</article>`,
+  css:`body { background: #f8fafc; padding: 40px; font-family: system-ui, sans-serif; }
+.card {
+  max-width: 320px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+}
+.card h3 { margin: 0 0 8px; }
+.card a { color: #2b6cb0; text-decoration: none; font-weight: 600; }
+.card a:hover { text-decoration: underline; }` },
+
+{ name:"9 · Responsive layout", task:"Media queries change the design at different screen widths. <b>Try:</b> drag the divider / resize the window.",
+  html:`<div class="wrap">
+  <main class="main">Main content</main>
+  <aside class="side">Sidebar</aside>
+</div>`,
+  css:`.wrap { display: flex; gap: 12px; padding: 16px; }
+.main, .side { padding: 24px; border-radius: 8px; }
+.main { flex: 3; background: #e0e7ff; }
+.side { flex: 1; background: #fef3c7; }
+
+@media (max-width: 500px) {
+  .wrap { flex-direction: column; }
+}` },
+
+{ name:"10 · Free canvas", task:"Blank slate. Build anything — the Explanation panel keeps annotating what you write.",
+  html:`<h1>Your turn</h1>
+<p>Write whatever you like.</p>`,
+  css:`body { font-family: system-ui, sans-serif; padding: 24px; }` }
+];
+
+/* ------------------------------------------------------------------ *
+ * 3. Wiring
+ * ------------------------------------------------------------------ */
+const $ = id => document.getElementById(id);
+const htmlBox = $('html'), cssBox = $('css'), out = $('out'), sel = $('lessons');
+
+LESSONS.forEach((l,i) => sel.add(new Option(l.name, i)));
+
+function loadLesson(i){
+  const l = LESSONS[i];
+  htmlBox.value = l.html;
+  cssBox.value  = l.css;
+  $('task').innerHTML = '<b>' + l.name + '</b> — ' + l.task;
+  run();
+}
+
+function run(){
+  const doc = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <style>${cssBox.value}</style></head><body>${htmlBox.value}</body></html>`;
+  out.srcdoc = doc;
+  explain();
+  const t = new Date();
+  $('status').textContent = 'ran ' + t.toLocaleTimeString();
+  localStorage.setItem('playground', JSON.stringify({h:htmlBox.value, c:cssBox.value}));
+}
+
+/* Explanation engine ------------------------------------------------ */
+function explain(){
+  const html = htmlBox.value, css = cssBox.value;
+  let parts = [];
+
+  // tags used, in order of first appearance, no duplicates
+  const seen = new Set(), tagRows = [];
+  for (const m of html.matchAll(/<\s*([a-zA-Z][a-zA-Z0-9]*)/g)){
+    const t = m[1].toLowerCase();
+    if (seen.has(t)) continue;
+    seen.add(t);
+    if (TAGS[t]) tagRows.push(row(`&lt;${t}&gt;`, TAGS[t], ''));
+    else tagRows.push(row(`&lt;${t}&gt;`, 'A custom or less common element — the browser treats unknown tags as plain inline boxes.', ''));
+  }
+  if (tagRows.length) parts.push('<h3>HTML you used</h3>' + tagRows.join(''));
+
+  // selectors
+  const selRows = [];
+  for (const m of css.matchAll(/(^|\})\s*([^{}@\/]+)\{/g)){
+    const s = m[2].trim().replace(/\s+/g,' ');
+    if (s) selRows.push(row(esc(s), describeSelector(s), 'css'));
+    if (selRows.length >= 12) break;
+  }
+  if (selRows.length) parts.push('<h3>Selectors</h3>' + selRows.join(''));
+
+  // properties
+  const pseen = new Set(), pRows = [];
+  for (const m of css.matchAll(/([a-z-]+)\s*:/g)){
+    const p = m[1].toLowerCase();
+    if (pseen.has(p) || !PROPS[p]) continue;
+    pseen.add(p);
+    pRows.push(row(p, PROPS[p], 'css'));
+  }
+  if (pRows.length) parts.push('<h3>CSS properties</h3>' + pRows.join(''));
+
+  // tips
+  const tipRows = [];
+  const both = html + '\n' + css;
+  for (const [re, msg] of TIPS) if (re.test(both)) tipRows.push(row('tip', msg, 'tip'));
+  if (unbalanced(html)) tipRows.push(row('check', 'Some tags look unclosed — every &lt;div&gt; needs a matching &lt;/div&gt;.', 'tip'));
+  if (/\{[^}]*$/.test(css.replace(/\/\*[\s\S]*?\*\//g,''))) tipRows.push(row('check','A CSS block may be missing its closing } — rules after it will be ignored.','tip'));
+  if (tipRows.length) parts.push('<h3>Notes &amp; hints</h3>' + tipRows.join(''));
+
+  $('explain').innerHTML = parts.join('') || '<p style="color:var(--muted)">Start typing HTML on the left — explanations appear here.</p>';
+}
+
+function describeSelector(s){
+  if (s.includes(':hover')) return 'Applies only while the mouse is over the element.';
+  if (s.includes(':focus')) return 'Applies while the element is focused (clicked or tabbed to).';
+  if (s.includes('::before') || s.includes('::after')) return 'Creates an extra generated box inside the element; needs a content property.';
+  if (s.startsWith('@media') || s.includes('@media')) return 'A media query — these rules only apply at certain screen sizes.';
+  if (s.includes(',')) return 'Targets several selectors at once, separated by commas.';
+  if (s.includes(' ')) return 'A descendant selector: matches "' + s.split(/\s+/).pop() + '" only inside its ancestor.';
+  if (s.startsWith('.')) return 'Class selector — matches any element with class="' + s.slice(1) + '".';
+  if (s.startsWith('#')) return 'ID selector — matches the single element with id="' + s.slice(1) + '". Very high specificity.';
+  if (s === '*') return 'Universal selector — matches every element.';
+  if (s === ':root') return 'The html element; the usual home for CSS custom properties (variables).';
+  return 'Element selector — matches every <' + s + '> on the page.';
+}
+
+function unbalanced(html){
+  const VOID = new Set(['img','br','hr','input','meta','link','source','area','col','embed','track','wbr']);
+  const stack = [];
+  for (const m of html.matchAll(/<\s*(\/?)\s*([a-zA-Z][a-zA-Z0-9]*)[^>]*?(\/?)>/g)){
+    const [, close, name, self] = m;
+    const t = name.toLowerCase();
+    if (VOID.has(t) || self) continue;
+    if (close){ if (stack.pop() !== t) return true; }
+    else stack.push(t);
+  }
+  return stack.length > 0;
+}
+
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const row = (code, text, cls) => `<div class="item ${cls}"><code>${code}</code><p>${text}</p></div>`;
+
+/* Events ------------------------------------------------------------ */
+let timer;
+function schedule(){
+  if (!$('auto').checked) return;
+  clearTimeout(timer);
+  timer = setTimeout(run, 450);
+}
+htmlBox.addEventListener('input', schedule);
+cssBox.addEventListener('input', schedule);
+$('run').onclick = run;
+$('load').onclick = () => loadLesson(+sel.value);
+sel.onchange = () => loadLesson(+sel.value);
+$('reset').onclick = () => loadLesson(+sel.value);
+$('save').onclick = () => {
+  const doc = `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<title>My page</title>\n<style>\n${cssBox.value}\n</style>\n</head>\n<body>\n${htmlBox.value}\n</body>\n</html>`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([doc], {type:'text/html'}));
+  a.download = 'my-page.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+// Tab inserts two spaces instead of leaving the editor
+[htmlBox, cssBox].forEach(el => el.addEventListener('keydown', e => {
+  if (e.key === 'Tab'){
+    e.preventDefault();
+    const s = el.selectionStart;
+    el.value = el.value.slice(0,s) + '  ' + el.value.slice(el.selectionEnd);
+    el.selectionStart = el.selectionEnd = s + 2;
+    schedule();
+  }
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(); }
+}));
+
+/* Start ------------------------------------------------------------- */
+const saved = localStorage.getItem('playground');
+if (saved){
+  try {
+    const s = JSON.parse(saved);
+    htmlBox.value = s.h; cssBox.value = s.c;
+    $('task').innerHTML = '<b>Restored your last session.</b> Pick a lesson above to start a guided exercise.';
+    run();
+  } catch { loadLesson(0); }
+} else loadLesson(0);
+</script>
+</body>
+</html>
